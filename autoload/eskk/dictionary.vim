@@ -1278,11 +1278,13 @@ function! s:ServerDict_request(command, key) abort dict "{{{
             let key = iconv(key, &encoding, self.encoding)
         endif
         if has('channel')
-            let result = ch_evalraw(self._socket, printf("%s%s%s\n",
-                        \ a:command, key, (key[strlen(key)-1] !=# ' ' ? ' ' : '')))
+            let result = ch_evalraw(self._socket, printf("%s%s%s%s",
+                        \ a:command, key, (key[strlen(key)-1] !=# ' ' ? ' ' : ''),
+                        \ self.last_cr ? "\n" : ''))
         else
-            call self._socket.write(printf("%s%s%s\n",
-                        \ a:command, key, (key[strlen(key)-1] !=# ' ' ? ' ' : '')))
+            call self._socket.write(printf('%s%s%s%s',
+                        \ a:command, key, (key[strlen(key)-1] != ' ' ? ' ' : ''),
+                        \ self.last_cr ? "\n" : ''))
             let result = self._socket.read_line(-1, self.timeout)
         endif
         if self.encoding !=# ''
@@ -1292,10 +1294,11 @@ function! s:ServerDict_request(command, key) abort dict "{{{
         if result ==# ''
             " Reset.
             if has('channel')
-                call ch_evalraw(self._socket, "0\n")
+                call ch_evalraw(self._socket, printf('0%s',
+                        \ self.last_cr ? "\n" : ''))
                 call ch_close(self._socket)
             else
-                call self._socket.write("0\n")
+                call self._socket.write(printf('0%s', self.last_cr ? "\n" : ''))
                 call self._socket.close()
             endif
             call self.init()
@@ -1330,6 +1333,7 @@ let s:ServerDict = {
             \   'encoding': 'euc-jp',
             \   'timeout': 1000,
             \   'type': 'dictionary',
+            \   'last_cr': 1,
             \
             \   'init': eskk#util#get_local_funcref('ServerDict_init', s:SID_PREFIX),
             \   'request': eskk#util#get_local_funcref('ServerDict_request', s:SID_PREFIX),
